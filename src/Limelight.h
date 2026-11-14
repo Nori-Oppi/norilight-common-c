@@ -826,6 +826,11 @@ int LiSendControllerTouchEvent2(uint8_t controllerNumber, uint8_t eventType, uin
 #define LI_MOTION_TYPE_GYRO  0x02
 int LiSendControllerMotionEvent(uint8_t controllerNumber, uint8_t motionType, float x, float y, float z);
 
+// Norilight: runs the Apollo host's server command at index cmdId (0-based, in
+// the order of <ServerCommand> entries in serverinfo). Returns 0 on success,
+// -2 if the host protocol doesn't support it.
+int LiSendExecServerCmd(uint8_t cmdId);
+
 // This function allows clients to send controller battery state to a supported host. If the
 // host can adjust battery state on the emulated controller, it can use this information to
 // make the virtual controller match the physical controller on the client.
