@@ -487,6 +487,12 @@ typedef void(*ConnListenerSetAdaptiveTriggers)(uint16_t controllerNumber, uint8_
 // This callback is invoked to set a controller's RGB LED (if present).
 typedef void(*ConnListenerSetControllerLED)(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t b);
 
+// Norilight: a Norishine host changed the stream's video format (codec, resolution, frame rate)
+// without reconnecting. It is called from the receive thread when the first frame in the new
+// format arrives, before that frame is decoded; frames are dropped until the new key frame.
+// The client must rebuild its decoder for the new format. videoFormat is a VIDEO_FORMAT_* value.
+typedef void(*ConnListenerVideoFormatChanged)(int videoFormat, int width, int height, int fps);
+
 typedef struct _CONNECTION_LISTENER_CALLBACKS {
     ConnListenerStageStarting stageStarting;
     ConnListenerStageComplete stageComplete;
@@ -501,6 +507,7 @@ typedef struct _CONNECTION_LISTENER_CALLBACKS {
     ConnListenerSetMotionEventState setMotionEventState;
     ConnListenerSetControllerLED setControllerLED;
     ConnListenerSetAdaptiveTriggers setAdaptiveTriggers;
+    ConnListenerVideoFormatChanged videoFormatChanged;  // Norilight
 } CONNECTION_LISTENER_CALLBACKS, *PCONNECTION_LISTENER_CALLBACKS;
 
 // Use this function to zero the connection callbacks when allocated on the stack or heap
