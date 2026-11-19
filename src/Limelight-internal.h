@@ -134,6 +134,7 @@ void destroyVideoDepacketizer(void);
 void queueRtpPacket(PRTPV_QUEUE_ENTRY queueEntry);
 void stopVideoDepacketizer(void);
 void requestDecoderRefresh(void);
+void queueVideoFormatChange(uint32_t firstFrame, int videoFormat, int width, int height, int fps);
 void notifyFrameLost(unsigned int frameNumber, bool speculative);
 
 void initializeVideoStream(void);

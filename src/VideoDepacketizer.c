@@ -51,6 +51,12 @@ static bool dropStatePending;
 static atomic_bool idrFrameProcessed;
 static PLT_MUTEX stateLock;
 
+// Norilight: a video format change announced by a Norishine host (control message 0x3100),
+// taking effect from frame formatChangeFrame on. Guarded by stateLock.
+static bool formatChangePending;
+static uint32_t formatChangeFrame;
+static int formatChangeFormat, formatChangeWidth, formatChangeHeight, formatChangeFps;
+
 #define DR_CLEANUP -1000
 
 #define CONSECUTIVE_DROP_LIMIT 120
@@ -106,6 +112,38 @@ void initializeVideoDepacketizer(int pktSize) {
     consecutiveFrameDrops = 0;
     atomic_store_explicit(&idrFrameProcessed, false, memory_order_relaxed);
     strictIdrFrameWait = !isReferenceFrameInvalidationEnabled();
+    formatChangePending = false;
+}
+
+// Norilight: the host will send frames in another format from firstFrame on
+void queueVideoFormatChange(uint32_t firstFrame, int videoFormat, int width, int height, int fps) {
+    PltLockMutex(&stateLock);
+    formatChangePending = true;
+    formatChangeFrame = firstFrame;
+    formatChangeFormat = videoFormat;
+    formatChangeWidth = width;
+    formatChangeHeight = height;
+    formatChangeFps = fps;
+    PltUnlockMutex(&stateLock);
+}
+
+// Norilight: switch to the announced format at the first frame that uses it
+static void applyVideoFormatChange(uint32_t frameIndex) {
+    if (!formatChangePending || isBefore32(frameIndex, formatChangeFrame)) {
+        return;
+    }
+    formatChangePending = false;
+
+    Limelog("Video format changes at frame %u: format 0x%x, %dx%d, %d fps\n",
+            frameIndex, formatChangeFormat, formatChangeWidth, formatChangeHeight, formatChangeFps);
+    NegotiatedVideoFormat = formatChangeFormat;
+    StreamConfig.width = formatChangeWidth;
+    StreamConfig.height = formatChangeHeight;
+    StreamConfig.fps = formatChangeFps;
+
+    // The new format starts with a key frame; nothing before it can be decoded
+    waitingForIdrFrame = true;
+    ListenerCallbacks.videoFormatChanged(formatChangeFormat, formatChangeWidth, formatChangeHeight, formatChangeFps);
 }
 
 // Free the NAL chain
@@ -912,6 +950,9 @@ static void processRtpPayloadLocked(PNV_VIDEO_PACKET videoPacket, int length,
         else {
             LC_ASSERT(nextFrameNumber == frameIndex);
         }
+
+        // Norilight: a format change announced by the host starts with this frame
+        applyVideoFormatChange(frameIndex);
 
         // We're now decoding a frame
         decodingFrame = true;

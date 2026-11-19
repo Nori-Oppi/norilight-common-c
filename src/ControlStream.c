@@ -1516,6 +1516,23 @@ static void controlReceiveThreadFunc(void* context) {
                 PltUnlockMutex(&hdrMutex);
             }
 
+            // Norilight: a Norishine host changes the video format (N9). Payload, little endian:
+            // first frame (32 bits), VIDEO_FORMAT_* (32), width, height, fps (16 each).
+            if (ctlHdr->type == 0x3100 && IS_SUNSHINE() && packetLength >= (int)sizeof(*ctlHdr) + 14) {
+                BYTE_BUFFER bb;
+                uint32_t firstFrame, videoFormat;
+                uint16_t width, height, fps;
+
+                BbInitializeWrappedBuffer(&bb, (char*)ctlHdr, sizeof(*ctlHdr), packetLength - sizeof(*ctlHdr), BYTE_ORDER_LITTLE);
+                BbGet32(&bb, &firstFrame);
+                BbGet32(&bb, &videoFormat);
+                BbGet16(&bb, &width);
+                BbGet16(&bb, &height);
+                BbGet16(&bb, &fps);
+                Limelog("Host announced a video format change at frame %u\n", firstFrame);
+                queueVideoFormatChange(firstFrame, (int)videoFormat, width, height, fps);
+            }
+
             // Process client callbacks in a separate thread
             if (needsAsyncCallback(ctlHdr->type)) {
                 queueAsyncCallback(ctlHdr, packetLength);
